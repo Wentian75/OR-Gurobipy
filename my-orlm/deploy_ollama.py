@@ -112,11 +112,31 @@ SYSTEM """You are an expert in operations research and optimization. You help us
         print("\n" + "="*60)
         print(f"Creating Ollama model: {self.model_name}")
         print("="*60)
+
+        # Check if model already exists
+        try:
+            list_result = subprocess.run(
+                ['ollama', 'list'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            if self.model_name in list_result.stdout:
+                print(f"Model '{self.model_name}' already exists. Removing it first...")
+                subprocess.run(
+                    ['ollama', 'rm', self.model_name],
+                    capture_output=True,
+                    text=True,
+                    check=False  # Don't fail if removal fails
+                )
+        except subprocess.CalledProcessError:
+            pass  # Ignore errors in checking/removing
+
         print("(This may take a few minutes...)")
 
         try:
             result = subprocess.run(
-                ['ollama', 'create', '--force', self.model_name,
+                ['ollama', 'create', self.model_name,
                  '-f', str(self.modelfile_path)],
                 capture_output=True,
                 text=True,

@@ -166,7 +166,12 @@ class GGUFConverter:
                 # Run cmake
                 print("Running CMake configuration...")
                 subprocess.run(
-                    ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release'],
+                    ['cmake', '..',
+                     '-DCMAKE_BUILD_TYPE=Release',
+                     '-DLLAMA_CURL=OFF',  # Disable CURL dependency
+                     '-DLLAMA_BUILD_SERVER=OFF',  # We don't need the server
+                     '-DLLAMA_BUILD_EXAMPLES=OFF'  # We don't need examples
+                    ],
                     cwd=str(build_dir),
                     check=True,
                     capture_output=True,
