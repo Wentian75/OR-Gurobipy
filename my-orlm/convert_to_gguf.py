@@ -152,21 +152,62 @@ class GGUFConverter:
         print("="*60)
 
         # Build quantize binary if needed
-        quantize_bin = self.llama_cpp_dir / 'quantize'
+        # Try both possible locations
+        quantize_bin = self.llama_cpp_dir / 'build' / 'bin' / 'quantize'
         if not quantize_bin.exists():
-            print("Building quantize binary...")
+            quantize_bin = self.llama_cpp_dir / 'quantize'
+
+        if not quantize_bin.exists():
+            print("Building llama.cpp with quantize binary...")
+            build_dir = self.llama_cpp_dir / 'build'
+            build_dir.mkdir(exist_ok=True)
+
             try:
+                # Run cmake
+                print("Running CMake configuration...")
                 subprocess.run(
-                    ['make', 'quantize'],
-                    cwd=str(self.llama_cpp_dir),
+                    ['cmake', '..', '-DCMAKE_BUILD_TYPE=Release'],
+                    cwd=str(build_dir),
                     check=True,
-                    capture_output=True
+                    capture_output=True,
+                    text=True
                 )
-                print("✓ Quantize binary built")
+                print("✓ CMake configuration complete")
+
+                # Build
+                print("Building llama.cpp (this may take a few minutes)...")
+                subprocess.run(
+                    ['cmake', '--build', '.', '--config', 'Release'],
+                    cwd=str(build_dir),
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                print("✓ Build complete")
+
+                # Update quantize binary path
+                quantize_bin = build_dir / 'bin' / 'quantize'
+                if not quantize_bin.exists():
+                    # Some systems put it directly in build/
+                    quantize_bin = build_dir / 'quantize'
+
             except subprocess.CalledProcessError as e:
-                print(f"✗ Failed to build quantize: {e}")
+                print(f"✗ Failed to build llama.cpp: {e}")
+                if e.stderr:
+                    print(f"  Error: {e.stderr[:500]}")
                 print("  Skipping quantization")
                 return None
+            except FileNotFoundError:
+                print("✗ CMake not found. Please install CMake:")
+                print("  macOS: brew install cmake")
+                print("  Linux: sudo apt-get install cmake")
+                print("  Skipping quantization")
+                return None
+
+        if not quantize_bin.exists():
+            print(f"✗ Quantize binary not found at {quantize_bin}")
+            print("  Skipping quantization")
+            return None
 
         # Quantize
         output_file = self.output_dir / f'model-{quant_type}.gguf'

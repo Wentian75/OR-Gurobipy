@@ -110,7 +110,7 @@ python my-orlm/run_training_pipeline.py
 ```bash
 # Custom training parameters
 python my-orlm/run_training_pipeline.py \
-    --base_model "Qwen/Qwen2.5-7B-Instruct" \
+    --base_model "Qwen/Qwen3-8B" \
     --data_path "ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl" \
     --epochs 2 \
     --batch_size 2 \
@@ -159,7 +159,7 @@ python my-orlm/train_qlora.py
 
 # With custom parameters
 python my-orlm/train_qlora.py \
-    --model_name "Qwen/Qwen2.5-7B-Instruct" \
+    --model_name "Qwen/Qwen3-8B" \
     --data_path "ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl" \
     --output_dir "ORLM/checkpoints/orlm-qwen3-8b-qlora" \
     --epochs 1 \
@@ -189,7 +189,7 @@ python my-orlm/merge_model.py
 
 # With custom paths
 python my-orlm/merge_model.py \
-    --base_model "Qwen/Qwen2.5-7B-Instruct" \
+    --base_model "Qwen/Qwen3-8B" \
     --adapter_path "ORLM/checkpoints/orlm-qwen3-8b-qlora" \
     --output_path "ORLM/checkpoints/orlm-qwen3-8b-merged"
 ```
@@ -321,7 +321,7 @@ All scripts accept command-line arguments for customization:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--base_model` | `Qwen/Qwen2.5-7B-Instruct` | Base model to fine-tune |
+| `--base_model` | `Qwen/Qwen3-8B` | Base model to fine-tune |
 | `--data_path` | `ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl` | Training data |
 | `--batch_size` | `1` | Per-device batch size |
 | `--grad_acc` | `8` | Gradient accumulation steps |

@@ -156,7 +156,7 @@ def main():
         description='Merge LoRA adapter with base model'
     )
     parser.add_argument('--base_model', type=str,
-                       default='Qwen/Qwen2.5-7B-Instruct',
+                       default='Qwen/Qwen3-8B',
                        help='Base model name or path')
     parser.add_argument('--adapter_path', type=str,
                        default='ORLM/checkpoints/orlm-qwen3-8b-qlora',

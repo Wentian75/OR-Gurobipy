@@ -80,7 +80,7 @@ python run_training_pipeline.py \
 ```
 
 **Arguments**:
-- `--base_model`: Base model name (default: Qwen/Qwen2.5-7B-Instruct)
+- `--base_model`: Base model name (default: Qwen/Qwen3-8B)
 - `--data_path`: Training data path
 - `--batch_size`: Batch size per device
 - `--epochs`: Number of training epochs
@@ -120,7 +120,7 @@ python train_qlora.py
 
 # Custom parameters
 python train_qlora.py \
-    --model_name "Qwen/Qwen2.5-7B-Instruct" \
+    --model_name "Qwen/Qwen3-8B" \
     --data_path "ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl" \
     --epochs 2 \
     --batch_size 1 \
@@ -155,7 +155,7 @@ python merge_model.py
 
 # Custom paths
 python merge_model.py \
-    --base_model "Qwen/Qwen2.5-7B-Instruct" \
+    --base_model "Qwen/Qwen3-8B" \
     --adapter_path "ORLM/checkpoints/orlm-qwen3-8b-qlora" \
     --output_path "ORLM/checkpoints/orlm-qwen3-8b-merged"
 ```

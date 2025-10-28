@@ -34,7 +34,7 @@ class TrainingPipeline:
         """Get default pipeline configuration"""
         return {
             # Model and data
-            'base_model': 'Qwen/Qwen2.5-7B-Instruct',
+            'base_model': 'Qwen/Qwen3-8B',
             'data_path': 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
 
             # Training
@@ -369,7 +369,7 @@ Examples:
 
     # Model and data
     parser.add_argument('--base_model', type=str,
-                       default='Qwen/Qwen2.5-7B-Instruct',
+                       default='Qwen/Qwen3-8B',
                        help='Base model name')
     parser.add_argument('--data_path', type=str,
                        default='ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
