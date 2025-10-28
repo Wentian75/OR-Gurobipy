@@ -32,7 +32,7 @@ class QLorTrainer:
     def get_default_config():
         """Get default training configuration"""
         return {
-            'model_name': 'Qwen/Qwen2.5-7B-Instruct',
+            'model_name': 'Qwen/Qwen3-8B',
             'data_path': 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
             'output_dir': 'ORLM/checkpoints/orlm-qwen3-8b-qlora',
             'seq_len': 2048,
@@ -289,7 +289,7 @@ def main():
         description='QLoRA Fine-tuning for ORLM-Qwen3-8B'
     )
     parser.add_argument('--model_name', type=str,
-                       default='Qwen/Qwen2.5-7B-Instruct',
+                       default='Qwen/Qwen3-8B',
                        help='Base model name or path')
     parser.add_argument('--data_path', type=str,
                        default='ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
