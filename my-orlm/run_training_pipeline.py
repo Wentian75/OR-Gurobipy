@@ -248,15 +248,39 @@ class TrainingPipeline:
             # Find GGUF file
             gguf_file = self.config.get('gguf_file')
             if not gguf_file:
-                # Try to find it
+                # Try to find it with priority order
                 gguf_dir = Path(self.config['gguf_output'])
-                gguf_files = list(gguf_dir.glob('model-Q*.gguf'))
-                if not gguf_files:
+
+                # Priority order: quantized models first, then f16
+                priority_patterns = [
+                    'model-Q5_K_M.gguf',
+                    'model-Q4_K_M.gguf',
+                    'model-Q8_0.gguf',
+                    'model-Q5_0.gguf',
+                    'model-Q4_0.gguf',
+                    'model-f16.gguf',
+                ]
+
+                # Try priority patterns first
+                for pattern in priority_patterns:
+                    candidate = gguf_dir / pattern
+                    if candidate.exists():
+                        gguf_file = str(candidate)
+                        break
+
+                # If no priority match, find any .gguf file
+                if not gguf_file:
                     gguf_files = list(gguf_dir.glob('*.gguf'))
-                if not gguf_files:
+                    if gguf_files:
+                        # Sort by modification time, newest first
+                        gguf_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                        gguf_file = str(gguf_files[0])
+
+                if not gguf_file:
                     print("✗ No GGUF file found")
                     return False
-                gguf_file = str(gguf_files[0])
+
+                print(f"✓ Auto-detected GGUF file: {Path(gguf_file).name}")
 
             deployer = OllamaDeployer(
                 gguf_path=gguf_file,

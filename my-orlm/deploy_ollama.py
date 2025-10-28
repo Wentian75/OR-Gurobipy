@@ -232,6 +232,48 @@ SYSTEM """You are an expert in operations research and optimization. You help us
         """)
 
 
+def find_gguf_file(gguf_dir='ORLM/checkpoints/gguf'):
+    """
+    Automatically find GGUF file in directory
+    Prefers quantized models (Q5_K_M, Q4_K_M, etc.) over f16
+
+    Args:
+        gguf_dir: Directory to search for GGUF files
+
+    Returns:
+        Path to GGUF file, or None if not found
+    """
+    gguf_path = Path(gguf_dir)
+
+    if not gguf_path.exists():
+        return None
+
+    # Priority order: quantized models first, then f16
+    priority_patterns = [
+        'model-Q5_K_M.gguf',
+        'model-Q4_K_M.gguf',
+        'model-Q8_0.gguf',
+        'model-Q5_0.gguf',
+        'model-Q4_0.gguf',
+        'model-f16.gguf',
+    ]
+
+    # Try priority patterns first
+    for pattern in priority_patterns:
+        candidate = gguf_path / pattern
+        if candidate.exists():
+            return str(candidate)
+
+    # If no priority match, find any .gguf file
+    gguf_files = list(gguf_path.glob('*.gguf'))
+    if gguf_files:
+        # Sort by modification time, newest first
+        gguf_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        return str(gguf_files[0])
+
+    return None
+
+
 def main():
     """Main entry point"""
     import argparse
@@ -240,8 +282,11 @@ def main():
         description='Deploy GGUF model to Ollama'
     )
     parser.add_argument('--gguf_path', type=str,
-                       default='ORLM/checkpoints/gguf/model-Q5_K_M.gguf',
-                       help='Path to GGUF model file')
+                       default=None,
+                       help='Path to GGUF model file (auto-detected if not provided)')
+    parser.add_argument('--gguf_dir', type=str,
+                       default='ORLM/checkpoints/gguf',
+                       help='Directory to search for GGUF files (default: ORLM/checkpoints/gguf)')
     parser.add_argument('--model_name', type=str,
                        default='orlm-qwen3-8b',
                        help='Name for the Ollama model')
@@ -253,9 +298,20 @@ def main():
 
     args = parser.parse_args()
 
+    # Auto-detect GGUF file if not provided
+    gguf_path = args.gguf_path
+    if not gguf_path:
+        print("No GGUF path specified, auto-detecting...")
+        gguf_path = find_gguf_file(args.gguf_dir)
+        if not gguf_path:
+            print(f"✗ Error: No GGUF file found in {args.gguf_dir}")
+            print("  Please run GGUF conversion first or specify --gguf_path")
+            sys.exit(1)
+        print(f"✓ Auto-detected GGUF file: {gguf_path}")
+
     # Create deployer
     deployer = OllamaDeployer(
-        gguf_path=args.gguf_path,
+        gguf_path=gguf_path,
         model_name=args.model_name
     )
 
