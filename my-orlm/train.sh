@@ -39,3 +39,22 @@ python3 -m train.finetune \
   --gradient_checkpointing True \
   --overwrite_output_dir \
   --bf16 False --fp16 True
+
+
+
+
+
+
+  python -m ORLM.train.finetune \
+  --model_name_or_path Qwen/Qwen3-8b\
+  --train_dataset_name_or_path ORLM/or_instruct_3k.jsonl \
+  --output_dir ORLM/checkpoints/orlm-qwen-mini \
+  --per_device_train_batch_size 1 \
+  --gradient_accumulation_steps 4 \
+  --max_seq_length 8192 \
+  --learning_rate 2e-5 \
+  --lr_scheduler_type linear \
+  --warmup_ratio 0.03 \
+  --num_train_epochs 1 \
+  --overwrite_output_dir \
+  --fp16 True 2>&1 | tee ORLM/train.log

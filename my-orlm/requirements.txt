@@ -1,0 +1,18 @@
+# PyTorch with CUDA support
+# Install separately with:
+# pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
+
+# QLoRA Training Dependencies
+transformers>=4.43
+peft>=0.11.0
+bitsandbytes>=0.43.1
+accelerate>=0.31.0
+datasets>=2.19
+trl>=0.9.4
+sentencepiece
+protobuf<5
+
+# Utilities
+numpy
+scipy
+tqdm
