@@ -70,12 +70,13 @@ class OllamaDeployer:
         print("="*60)
 
         # Template for OR problems
-        template = '''Below is an operations research question. Build a mathematical model and corresponding Python code using `gurobipy` that appropriately addresses the question.
+        template = '''Below is an operations research question. Build a mathematical model and corresponding python code using `coptpy` that appropriately addresses the question.
 
 # Question:
 {{ .Prompt }}
 
 # Response:
+(Write the final answer only. Do not include chain-of-thought. End your response with the exact token <EOR> on its own line.)
 '''
 
         # Modelfile content
@@ -83,18 +84,30 @@ class OllamaDeployer:
 
 TEMPLATE """{template}"""
 
-PARAMETER stop "</s>"
+# --- Hard stops to block visible chain-of-thought / drafting tokens ---
+PARAMETER stop "<think>"
+PARAMETER stop "</think>"
+PARAMETER stop "<|thought_start|>"
+PARAMETER stop "<|thought_end|>"
+PARAMETER stop "<|assistant_thought|>"
+PARAMETER stop "<|internal|>"
+
+# (Optional) also stop on Qwen-style message delimiters if the build emits them
+PARAMETER stop "<|im_start|>"
 PARAMETER stop "<|im_end|>"
-PARAMETER stop "This script provides an example"
+
+# --- The explicit end-of-response sentinel ---
+PARAMETER stop "<EOR>"
+
+# --- Inference parameters (tune as needed) ---
 PARAMETER temperature 0.2
 PARAMETER top_p 0.95
 PARAMETER top_k 40
-PARAMETER repeat_penalty 1.2
-PARAMETER repeat_last_n 256
-PARAMETER num_ctx 8192
-PARAMETER num_predict 2048
+PARAMETER repeat_penalty 1.15
+PARAMETER num_ctx 4096
+PARAMETER num_predict 1536
 
-SYSTEM """You are an expert in operations research and optimization. You help users formulate and solve optimization problems using mathematical models and Python code with gurobipy."""
+SYSTEM """You are an expert in operations research and optimization. You help users formulate and solve optimization problems using mathematical models and Python code with coptpy."""
 '''
 
         # Write Modelfile
