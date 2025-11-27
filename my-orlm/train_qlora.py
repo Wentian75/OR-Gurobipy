@@ -39,8 +39,8 @@ class QLorTrainer:
             'data_path': 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
             'output_dir': 'ORLM/checkpoints/orlm-qwen3-8b-qlora',
             'seq_len': 2048,
-            'batch_size': 1,
-            'grad_acc': 8,
+            'batch_size': 2,  # Increased from 1 for better throughput
+            'grad_acc': 4,    # Reduced to keep effective batch size = 8
             'epochs': 5,
             'learning_rate': 2e-4,
             'lr_scheduler_type': 'cosine',
@@ -302,9 +302,9 @@ class QLorTrainer:
             metric_for_best_model='loss',
             greater_is_better=False,
             fp16=True,
-            gradient_checkpointing=True,
+            gradient_checkpointing=False,  # Disabled for speed with 42GB VRAM
             optim='paged_adamw_8bit',
-            dataloader_num_workers=4,
+            dataloader_num_workers=0,  # Reduced to avoid multiprocessing overhead
             report_to='none',
             remove_unused_columns=False,
         )
