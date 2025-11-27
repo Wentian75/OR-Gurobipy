@@ -67,6 +67,42 @@ class QLorTrainer:
         os.environ['WANDB_MODE'] = 'offline'
         os.environ['WANDB_SILENT'] = 'true'
 
+    def select_dataset(self):
+        """Prompt user to select dataset if not already specified"""
+        # If data_path is already set and exists, skip selection
+        if self.config.get('data_path'):
+            data_path = Path(self.config['data_path'])
+            if data_path.exists():
+                return
+
+        print("\n" + "="*60)
+        print("Dataset Selection")
+        print("="*60)
+        print("\nPlease select the code style for training:\n")
+        print("  1. Gurobi Style  - Uses gurobipy library")
+        print("     Dataset: OR-Instruct-Data-3K-Gurobipy.jsonl")
+        print("     Best for: Industry-standard optimization problems")
+        print()
+        print("  2. LP Style      - Uses standard LP format")
+        print("     Dataset: OR-Instruct-Data-3k-LP.jsonl")
+        print("     Best for: Linear programming problems")
+        print()
+
+        while True:
+            choice = input("Enter your choice (1 or 2): ").strip()
+            if choice == '1':
+                self.config['data_path'] = 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl'
+                print("\n✓ Selected: Gurobi Style")
+                break
+            elif choice == '2':
+                self.config['data_path'] = 'ORLM/data/OR-Instruct-Data-3k-LP.jsonl'
+                print("\n✓ Selected: LP Style")
+                break
+            else:
+                print("Invalid choice. Please enter 1 or 2.")
+
+        print("="*60)
+
     def check_requirements(self):
         """Check if all requirements are met"""
         print("\n" + "="*60)
@@ -232,6 +268,9 @@ class QLorTrainer:
         ╚══════════════════════════════════════════════════════════╝
         """)
 
+        # Select dataset if needed
+        self.select_dataset()
+
         # Check requirements
         self.check_requirements()
 
@@ -257,7 +296,7 @@ class QLorTrainer:
             logging_steps=self.config['logging_steps'],
             save_strategy=self.config['save_strategy'],
             save_total_limit=self.config['save_total_limit'],
-            evaluation_strategy=self.config.get('eval_strategy', 'epoch') if eval_dataset else 'no',
+            eval_strategy=self.config.get('eval_strategy', 'epoch') if eval_dataset else 'no',
             eval_steps=self.config.get('eval_steps'),
             load_best_model_at_end=True if eval_dataset and self.config.get('early_stopping', False) else False,
             metric_for_best_model='loss',
@@ -338,14 +377,33 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='QLoRA Fine-tuning for ORLM-Qwen3-8B'
+        description='QLoRA Fine-tuning for ORLM-Qwen3-8B',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode (will prompt for dataset choice)
+  python train_qlora.py
+
+  # Specify dataset via code style
+  python train_qlora.py --code_style gurobi
+  python train_qlora.py --code_style lp
+
+  # Specify dataset path directly
+  python train_qlora.py --data_path ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl
+
+  # Custom training parameters
+  python train_qlora.py --code_style gurobi --epochs 5 --lr_scheduler_type cosine
+        """
     )
     parser.add_argument('--model_name', type=str,
                        default='Qwen/Qwen3-8B',
                        help='Base model name or path')
+    parser.add_argument('--code_style', type=str,
+                       choices=['gurobi', 'lp'],
+                       help='Code style: gurobi or lp (interactive prompt if not specified)')
     parser.add_argument('--data_path', type=str,
-                       default='ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
-                       help='Path to training data (JSONL format)')
+                       default=None,
+                       help='Path to training data (JSONL format). Auto-selected if code_style is provided.')
     parser.add_argument('--output_dir', type=str,
                        default='ORLM/checkpoints/orlm-qwen3-8b-qlora',
                        help='Output directory for checkpoints')
@@ -375,8 +433,22 @@ def main():
 
     # Build config from args
     config = QLorTrainer.get_default_config()
+
+    # Handle code_style argument
+    if args.code_style:
+        if args.code_style == 'gurobi':
+            config['data_path'] = 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl'
+        elif args.code_style == 'lp':
+            config['data_path'] = 'ORLM/data/OR-Instruct-Data-3k-LP.jsonl'
+    elif args.data_path:
+        config['data_path'] = args.data_path
+    else:
+        # Will prompt user interactively in train()
+        config['data_path'] = None
+
+    # Apply other arguments
     for key, value in vars(args).items():
-        if value is not None:
+        if key not in ['code_style'] and value is not None:
             config[key] = value
 
     # Create trainer and start training
