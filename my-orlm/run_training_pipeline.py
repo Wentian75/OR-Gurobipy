@@ -40,12 +40,12 @@ class TrainingPipeline:
 
             # Training
             'adapter_output': 'ORLM/checkpoints/orlm-qwen3-8b-qlora',
-            'batch_size': 1,
-            'grad_acc': 8,
-            'epochs': 5,
+            'batch_size': 2,
+            'grad_acc': 4,
+            'epochs': 2,
             'learning_rate': 2e-4,
             'lr_scheduler_type': 'cosine',
-            'early_stopping': True,
+            'early_stopping': False,
             'early_stopping_patience': 3,
 
             # Merging
@@ -464,13 +464,13 @@ Examples:
                        help='Code style: gurobi or lp (interactive prompt if not specified)')
 
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--grad_acc', type=int, default=8)
-    parser.add_argument('--epochs', type=float, default=5)
+    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--grad_acc', type=int, default=4)
+    parser.add_argument('--epochs', type=float, default=2)
     parser.add_argument('--learning_rate', type=float, default=2e-4)
     parser.add_argument('--lr_scheduler_type', type=str, default='cosine',
                        choices=['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant'])
-    parser.add_argument('--early_stopping', action='store_true', default=True)
+    parser.add_argument('--early_stopping', action='store_true', default=False)
     parser.add_argument('--no_early_stopping', dest='early_stopping', action='store_false')
     parser.add_argument('--early_stopping_patience', type=int, default=3,
                        help='Number of epochs with no improvement before stopping')

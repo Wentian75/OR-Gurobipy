@@ -41,7 +41,7 @@ class QLorTrainer:
             'seq_len': 2048,
             'batch_size': 2,  # Increased from 1 for better throughput
             'grad_acc': 4,    # Reduced to keep effective batch size = 8
-            'epochs': 5,
+            'epochs': 2,      # Reduced from 5 for faster training
             'learning_rate': 2e-4,
             'lr_scheduler_type': 'cosine',
             'lora_r': 64,
@@ -53,11 +53,11 @@ class QLorTrainer:
             'logging_steps': 10,
             'save_strategy': 'epoch',
             'save_total_limit': 2,
-            'eval_strategy': 'epoch',
+            'eval_strategy': 'no',     # Disabled - no evaluation
             'eval_steps': None,
-            'early_stopping': True,
+            'early_stopping': False,   # Disabled - train for full epochs
             'early_stopping_patience': 3,
-            'eval_split_ratio': 0.1,  # Use 10% of data for validation
+            'eval_split_ratio': 0.0,   # Use all data for training
         }
 
     def setup_environment(self):
@@ -407,11 +407,11 @@ Examples:
     parser.add_argument('--output_dir', type=str,
                        default='ORLM/checkpoints/orlm-qwen3-8b-qlora',
                        help='Output directory for checkpoints')
-    parser.add_argument('--batch_size', type=int, default=1,
+    parser.add_argument('--batch_size', type=int, default=2,
                        help='Per-device batch size')
-    parser.add_argument('--grad_acc', type=int, default=8,
+    parser.add_argument('--grad_acc', type=int, default=4,
                        help='Gradient accumulation steps')
-    parser.add_argument('--epochs', type=float, default=5,
+    parser.add_argument('--epochs', type=float, default=2,
                        help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=2e-4,
                        help='Learning rate')
@@ -420,13 +420,13 @@ Examples:
                        help='Learning rate scheduler type')
     parser.add_argument('--lora_r', type=int, default=64,
                        help='LoRA rank')
-    parser.add_argument('--early_stopping', action='store_true', default=True,
+    parser.add_argument('--early_stopping', action='store_true', default=False,
                        help='Enable early stopping')
     parser.add_argument('--no_early_stopping', dest='early_stopping', action='store_false',
-                       help='Disable early stopping')
+                       help='Disable early stopping (default)')
     parser.add_argument('--early_stopping_patience', type=int, default=3,
                        help='Early stopping patience in epochs')
-    parser.add_argument('--eval_split_ratio', type=float, default=0.1,
+    parser.add_argument('--eval_split_ratio', type=float, default=0.0,
                        help='Ratio of data to use for evaluation')
 
     args = parser.parse_args()
