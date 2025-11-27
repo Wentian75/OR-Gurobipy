@@ -29,7 +29,7 @@
 │  ┌────────────────────────────────────────────────────┐     │
 │  │  train_qlora.py                                    │     │
 │  │  Input:                                            │     │
-│  │    • Base model: Qwen/Qwen2.5-7B-Instruct         │     │
+│  │    • Base model: Qwen/Qwen3-8B-Instruct         │     │
 │  │    • Data: OR-Instruct-Data-3K-Gurobipy.jsonl     │     │
 │  │  Process:                                          │     │
 │  │    • Load model in 4-bit quantization             │     │
@@ -47,7 +47,7 @@
 │  ┌────────────────────────────────────────────────────┐     │
 │  │  merge_model.py                                    │     │
 │  │  Input:                                            │     │
-│  │    • Base model: Qwen/Qwen2.5-7B-Instruct         │     │
+│  │    • Base model: Qwen/Qwen3-8B-Instruct         │     │
 │  │    • LoRA adapter (from Step 2)                   │     │
 │  │  Process:                                          │     │
 │  │    • Load base model                              │     │
@@ -119,7 +119,7 @@
 
 ```
 Original Base Model (Download)
-    🔽 Qwen/Qwen2.5-7B-Instruct (~15GB, cached by HuggingFace)
+    🔽 Qwen/Qwen3-8B-Instruct (~15GB, cached by HuggingFace)
 
 Training (Step 2)
     🔽 Creates LoRA Adapter (~400MB)

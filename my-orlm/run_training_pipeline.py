@@ -36,13 +36,17 @@ class TrainingPipeline:
             # Model and data
             'base_model': 'Qwen/Qwen3-8B',
             'data_path': 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
+            'code_style': None,  # Will be set by user choice
 
             # Training
             'adapter_output': 'ORLM/checkpoints/orlm-qwen3-8b-qlora',
             'batch_size': 1,
             'grad_acc': 8,
-            'epochs': 1,
+            'epochs': 5,
             'learning_rate': 2e-4,
+            'lr_scheduler_type': 'cosine',
+            'early_stopping': True,
+            'early_stopping_patience': 3,
 
             # Merging
             'merged_output': 'ORLM/checkpoints/orlm-qwen3-8b-merged',
@@ -75,13 +79,55 @@ class TrainingPipeline:
         ╚══════════════════════════════════════════════════════════╝
         """)
 
+    def select_code_style(self):
+        """Prompt user to select code style for training"""
+        if self.config.get('code_style'):
+            # Already set via command line
+            return
+
+        print("\n" + "="*60)
+        print("Dataset Selection")
+        print("="*60)
+        print("\nPlease select the code style for training:\n")
+        print("  1. Gurobi Style  - Uses gurobipy library")
+        print("     Dataset: OR-Instruct-Data-3K-Gurobipy.jsonl")
+        print("     Best for: Industry-standard optimization problems")
+        print()
+        print("  2. LP Style      - Uses standard LP format")
+        print("     Dataset: OR-Instruct-Data-3k-LP.jsonl")
+        print("     Best for: Linear programming problems")
+        print()
+
+        while True:
+            choice = input("Enter your choice (1 or 2): ").strip()
+            if choice == '1':
+                self.config['code_style'] = 'gurobi'
+                self.config['data_path'] = 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl'
+                self.config['ollama_model_name'] = 'orlm-qwen3-8b-gurobi'
+                print("\n✓ Selected: Gurobi Style")
+                break
+            elif choice == '2':
+                self.config['code_style'] = 'lp'
+                self.config['data_path'] = 'ORLM/data/OR-Instruct-Data-3k-LP.jsonl'
+                self.config['ollama_model_name'] = 'orlm-qwen3-8b-lp'
+                print("\n✓ Selected: LP Style")
+                break
+            else:
+                print("Invalid choice. Please enter 1 or 2.")
+
+        print("="*60)
+
     def print_config(self):
         """Print pipeline configuration"""
         print("\n" + "="*60)
         print("Pipeline Configuration:")
         print("="*60)
         print(f"Base model:      {self.config['base_model']}")
+        print(f"Code style:      {self.config.get('code_style', 'Not set').upper()}")
         print(f"Training data:   {self.config['data_path']}")
+        print(f"Epochs:          {self.config['epochs']}")
+        print(f"LR scheduler:    {self.config['lr_scheduler_type']}")
+        print(f"Early stopping:  {'Enabled' if self.config['early_stopping'] else 'Disabled'}")
         print(f"Adapter output:  {self.config['adapter_output']}")
         print(f"Merged output:   {self.config['merged_output']}")
         print(f"GGUF output:     {self.config['gguf_output']}")
@@ -134,12 +180,22 @@ class TrainingPipeline:
                 'grad_acc': self.config['grad_acc'],
                 'epochs': self.config['epochs'],
                 'learning_rate': self.config['learning_rate'],
+                'lr_scheduler_type': self.config.get('lr_scheduler_type', 'cosine'),
+                'early_stopping': self.config.get('early_stopping', True),
+                'early_stopping_patience': self.config.get('early_stopping_patience', 3),
             }
             trainer_config.update(QLorTrainer.get_default_config())
             trainer_config.update({
                 'model_name': self.config['base_model'],
                 'data_path': self.config['data_path'],
                 'output_dir': self.config['adapter_output'],
+                'batch_size': self.config['batch_size'],
+                'grad_acc': self.config['grad_acc'],
+                'epochs': self.config['epochs'],
+                'learning_rate': self.config['learning_rate'],
+                'lr_scheduler_type': self.config.get('lr_scheduler_type', 'cosine'),
+                'early_stopping': self.config.get('early_stopping', True),
+                'early_stopping_patience': self.config.get('early_stopping_patience', 3),
             })
 
             trainer = QLorTrainer(trainer_config)
@@ -299,6 +355,11 @@ class TrainingPipeline:
     def run(self):
         """Execute complete pipeline"""
         self.print_banner()
+
+        # Select code style if not skipping training
+        if not self.config['skip_training']:
+            self.select_code_style()
+
         self.print_config()
 
         print("\n" + "="*60)
@@ -396,14 +457,23 @@ Examples:
                        default='Qwen/Qwen3-8B',
                        help='Base model name')
     parser.add_argument('--data_path', type=str,
-                       default='ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl',
-                       help='Training data path')
+                       default=None,
+                       help='Training data path (auto-selected if not provided)')
+    parser.add_argument('--code_style', type=str,
+                       choices=['gurobi', 'lp'],
+                       help='Code style: gurobi or lp (interactive prompt if not specified)')
 
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--grad_acc', type=int, default=8)
-    parser.add_argument('--epochs', type=float, default=1)
+    parser.add_argument('--epochs', type=float, default=5)
     parser.add_argument('--learning_rate', type=float, default=2e-4)
+    parser.add_argument('--lr_scheduler_type', type=str, default='cosine',
+                       choices=['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant'])
+    parser.add_argument('--early_stopping', action='store_true', default=True)
+    parser.add_argument('--no_early_stopping', dest='early_stopping', action='store_false')
+    parser.add_argument('--early_stopping_patience', type=int, default=3,
+                       help='Number of epochs with no improvement before stopping')
 
     # Output paths
     parser.add_argument('--adapter_output', type=str,
@@ -442,7 +512,20 @@ Examples:
     # Build config
     config = TrainingPipeline.get_default_config()
     for key, value in vars(args).items():
-        config[key] = value
+        if value is not None:
+            config[key] = value
+
+    # Set data path based on code style if provided
+    if args.code_style:
+        if args.code_style == 'gurobi':
+            config['data_path'] = 'ORLM/data/OR-Instruct-Data-3K-Gurobipy.jsonl'
+            config['ollama_model_name'] = 'orlm-qwen3-8b-gurobi'
+        elif args.code_style == 'lp':
+            config['data_path'] = 'ORLM/data/OR-Instruct-Data-3k-LP.jsonl'
+            config['ollama_model_name'] = 'orlm-qwen3-8b-lp'
+    elif not args.data_path:
+        # Will prompt user interactively
+        config['data_path'] = None
 
     # Create and run pipeline
     pipeline = TrainingPipeline(config)

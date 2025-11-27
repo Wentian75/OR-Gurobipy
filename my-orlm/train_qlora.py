@@ -14,10 +14,13 @@ from transformers import (
     TrainingArguments,
     DataCollatorForLanguageModeling,
     BitsAndBytesConfig,
-    Trainer
+    Trainer,
+    TrainerCallback,
+    EarlyStoppingCallback
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import torch
+import numpy as np
 
 
 class QLorTrainer:
@@ -38,8 +41,9 @@ class QLorTrainer:
             'seq_len': 2048,
             'batch_size': 1,
             'grad_acc': 8,
-            'epochs': 1,
+            'epochs': 5,
             'learning_rate': 2e-4,
+            'lr_scheduler_type': 'cosine',
             'lora_r': 64,
             'lora_alpha': 128,
             'lora_dropout': 0.05,
@@ -49,6 +53,11 @@ class QLorTrainer:
             'logging_steps': 10,
             'save_strategy': 'epoch',
             'save_total_limit': 2,
+            'eval_strategy': 'epoch',
+            'eval_steps': None,
+            'early_stopping': True,
+            'early_stopping_patience': 3,
+            'eval_split_ratio': 0.1,  # Use 10% of data for validation
         }
 
     def setup_environment(self):
@@ -97,16 +106,33 @@ class QLorTrainer:
         raw_dataset = load_dataset('json', data_files=data_path, split='train')
         print(f"✓ Loaded {len(raw_dataset)} examples")
 
+        # Split into train and eval if early stopping is enabled
+        if self.config.get('early_stopping', False):
+            split_ratio = self.config.get('eval_split_ratio', 0.1)
+            split_dataset = raw_dataset.train_test_split(test_size=split_ratio, seed=42)
+            train_dataset = split_dataset['train']
+            eval_dataset = split_dataset['test']
+            print(f"✓ Split into {len(train_dataset)} train / {len(eval_dataset)} eval examples")
+        else:
+            train_dataset = raw_dataset
+            eval_dataset = None
+
         # Format dataset
         def format_text(example):
             prompt = (example.get('prompt') or '').strip()
             completion = (example.get('completion') or '').strip()
             return {'text': f"{prompt}\n{completion}"}
 
-        raw_dataset = raw_dataset.map(
+        train_dataset = train_dataset.map(
             format_text,
-            remove_columns=raw_dataset.column_names
+            remove_columns=train_dataset.column_names
         )
+
+        if eval_dataset is not None:
+            eval_dataset = eval_dataset.map(
+                format_text,
+                remove_columns=eval_dataset.column_names
+            )
 
         # Tokenize
         def tokenize_function(batch):
@@ -117,15 +143,23 @@ class QLorTrainer:
                 padding='max_length',
             )
 
-        tokenized_dataset = raw_dataset.map(
+        train_dataset = train_dataset.map(
             tokenize_function,
             batched=True,
             remove_columns=['text'],
-            desc="Tokenizing dataset"
+            desc="Tokenizing training dataset"
         )
 
+        if eval_dataset is not None:
+            eval_dataset = eval_dataset.map(
+                tokenize_function,
+                batched=True,
+                remove_columns=['text'],
+                desc="Tokenizing evaluation dataset"
+            )
+
         print(f"✓ Dataset tokenized successfully")
-        return tokenized_dataset
+        return train_dataset, eval_dataset
 
     def load_model_and_tokenizer(self):
         """Load model and tokenizer with QLoRA config"""
@@ -205,7 +239,7 @@ class QLorTrainer:
         model, tokenizer = self.load_model_and_tokenizer()
 
         # Build dataset
-        train_dataset = self.build_dataset(
+        train_dataset, eval_dataset = self.build_dataset(
             self.config['data_path'],
             tokenizer,
             self.config['seq_len']
@@ -218,11 +252,16 @@ class QLorTrainer:
             gradient_accumulation_steps=self.config['grad_acc'],
             num_train_epochs=self.config['epochs'],
             learning_rate=self.config['learning_rate'],
-            lr_scheduler_type='linear',
+            lr_scheduler_type=self.config.get('lr_scheduler_type', 'cosine'),
             warmup_ratio=self.config['warmup_ratio'],
             logging_steps=self.config['logging_steps'],
             save_strategy=self.config['save_strategy'],
             save_total_limit=self.config['save_total_limit'],
+            evaluation_strategy=self.config.get('eval_strategy', 'epoch') if eval_dataset else 'no',
+            eval_steps=self.config.get('eval_steps'),
+            load_best_model_at_end=True if eval_dataset and self.config.get('early_stopping', False) else False,
+            metric_for_best_model='loss',
+            greater_is_better=False,
             fp16=True,
             gradient_checkpointing=True,
             optim='paged_adamw_8bit',
@@ -237,13 +276,22 @@ class QLorTrainer:
             mlm=False
         )
 
+        # Prepare callbacks
+        callbacks = []
+        if eval_dataset and self.config.get('early_stopping', False):
+            patience = self.config.get('early_stopping_patience', 3)
+            callbacks.append(EarlyStoppingCallback(early_stopping_patience=patience))
+            print(f"\n✓ Early stopping enabled with patience={patience}")
+
         # Initialize trainer
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
             data_collator=data_collator,
             tokenizer=tokenizer,
+            callbacks=callbacks,
         )
 
         # Print training info
@@ -258,6 +306,10 @@ class QLorTrainer:
         print(f"  Effective batch size: {self.config['batch_size'] * self.config['grad_acc']}")
         print(f"  Epochs: {self.config['epochs']}")
         print(f"  Learning rate: {self.config['learning_rate']}")
+        print(f"  LR scheduler: {self.config.get('lr_scheduler_type', 'cosine')}")
+        print(f"  Early stopping: {'Enabled' if self.config.get('early_stopping', False) else 'Disabled'}")
+        if self.config.get('early_stopping', False):
+            print(f"  Early stopping patience: {self.config.get('early_stopping_patience', 3)} epochs")
         print(f"  LoRA rank: {self.config['lora_r']}")
         print(f"  LoRA alpha: {self.config['lora_alpha']}")
         print("="*60)
@@ -301,12 +353,23 @@ def main():
                        help='Per-device batch size')
     parser.add_argument('--grad_acc', type=int, default=8,
                        help='Gradient accumulation steps')
-    parser.add_argument('--epochs', type=float, default=1,
+    parser.add_argument('--epochs', type=float, default=5,
                        help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=2e-4,
                        help='Learning rate')
+    parser.add_argument('--lr_scheduler_type', type=str, default='cosine',
+                       choices=['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant'],
+                       help='Learning rate scheduler type')
     parser.add_argument('--lora_r', type=int, default=64,
                        help='LoRA rank')
+    parser.add_argument('--early_stopping', action='store_true', default=True,
+                       help='Enable early stopping')
+    parser.add_argument('--no_early_stopping', dest='early_stopping', action='store_false',
+                       help='Disable early stopping')
+    parser.add_argument('--early_stopping_patience', type=int, default=3,
+                       help='Early stopping patience in epochs')
+    parser.add_argument('--eval_split_ratio', type=float, default=0.1,
+                       help='Ratio of data to use for evaluation')
 
     args = parser.parse_args()
 
