@@ -176,7 +176,7 @@ class QLorTrainer:
                 batch['text'],
                 truncation=True,
                 max_length=max_len,
-                padding='max_length',
+                padding=False,  # Dynamic padding handled by DataCollator
             )
 
         train_dataset = train_dataset.map(
