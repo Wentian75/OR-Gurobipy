@@ -104,8 +104,8 @@ PARAMETER temperature 0.2
 PARAMETER top_p 0.95
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.15
-PARAMETER num_ctx 4096
-PARAMETER num_predict 1536
+PARAMETER num_ctx 8192
+PARAMETER num_predict 4096
 
 SYSTEM """You are an expert in operations research and optimization. You help users formulate and solve optimization problems using mathematical models and Python code with coptpy."""
 '''
